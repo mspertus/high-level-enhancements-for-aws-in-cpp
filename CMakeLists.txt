@@ -58,6 +58,10 @@ endif ()
 
 # Options definition
 option(BUILD_TESTING "If enabled, the SDK will include tests in the build" OFF)
+option(AWSLABS_ENABLE_CRT
+    "Use the AWS Common Runtime (CRT) HTTP transport instead of the SDK's libcurl-based default. \
+Eliminates the per-handle mutex contention that caps single-process Lambda concurrency at ~50."
+    ON)
 
 # -- Dependencies --
 include(dependencies)
@@ -85,6 +89,37 @@ if (TARGET tl::expected)
     target_link_libraries(headers INTERFACE tl::expected)
 endif ()
 
+# -- CRT-based HTTP transport (opt-out via -DAWSLABS_ENABLE_CRT=OFF) --
+# Builds a compiled static library that wraps libaws-c-http (non-blocking,
+# event-loop-driven I/O) and installs it as the SDK's HttpClient. The
+# headers target depends on it transitively, so consumers of
+# awslabs_enhanced_cpp::headers automatically get the CRT-backed transport
+# when EnhancedLambdaClient is first constructed.
+if (AWSLABS_ENABLE_CRT)
+    include(find_crt_libs)
+
+    add_library(crt_http STATIC src/crt/crt_http_client.cpp)
+    add_library(awslabs_enhanced_cpp::crt_http ALIAS crt_http)
+
+    target_include_directories(crt_http
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        PRIVATE
+            ${AWSLABS_CRT_HTTP_INCLUDE_DIR}
+    )
+    target_compile_features(crt_http PUBLIC cxx_std_20)
+    target_link_libraries(crt_http
+        PUBLIC  aws-cpp-sdk-core
+        PRIVATE ${AWSLABS_CRT_LIBRARIES}
+    )
+
+    # Consumers of headers get crt_http transitively, so EnhancedLambdaClient
+    # can call AwsLabs::Enhanced::Crt::InstallCrtHttpFactory() unconditionally.
+    target_link_libraries(headers INTERFACE crt_http)
+    target_compile_definitions(headers INTERFACE AWSLABS_HAVE_CRT_HTTP=1)
+endif ()
+
 # -- Tests, doc and packaging if running this as top project --
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     if (BUILD_TESTING)
@@ -95,7 +130,12 @@ endif ()
 
 set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
 
-install(TARGETS headers EXPORT awslabs_enhanced_cpp)
+if (AWSLABS_ENABLE_CRT)
+    install(TARGETS headers crt_http EXPORT awslabs_enhanced_cpp
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+else ()
+    install(TARGETS headers EXPORT awslabs_enhanced_cpp)
+endif ()
 
 install(EXPORT awslabs_enhanced_cpp
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/awslabs_enhanced_cpp"
