@@ -10,6 +10,7 @@
 #include <aws/core/utils/HashingUtils.h>
 #include <functional>
 #include <stdexcept>
+#include <version> // for __cpp_lib_expected feature-test macro
 #ifdef __cpp_lib_expected
 #include <expected>
 namespace expns = std;

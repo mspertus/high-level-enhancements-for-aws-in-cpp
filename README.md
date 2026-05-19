@@ -16,11 +16,12 @@ for more information.
 - [CMake 3.15+](https://cmake.org/)
 - [AWS SDK for C++ 1.9+](https://github.com/aws/aws-sdk-cpp)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) for uploading the AWS Lambda functions.
-- A [C++20](https://isocpp.org/) compatible compiler. (C++17 may
-work)
+- A [C++20](https://isocpp.org/) compatible compiler. The build will
+automatically use C++23 when the compiler supports it, which enables
+`std::expected` and removes the need for the tl-expected fallback below.
 - [AWS Lambda Runtime for C++](https://github.com/awslabs/aws-lambda-cpp)
-- [TL Expected](https://github.com/TartanLlama/expected) for 
-compilers that do not yet support `std::expected`
+- [TL Expected](https://github.com/TartanLlama/expected) — only required
+when building with a compiler that does not yet provide `std::expected`
 #### Additional dependencies for developers
 - [GoogleTest 1.11+](https://github.com/google/googletest)
 

@@ -12,9 +12,10 @@ project("awslabs_enhanced_cpp_examples"
 
 # -- Project wide setup --
 # Setting C++ minimum requirements
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# See top-level CMakeLists.txt: intentionally not REQUIRED so the build
+# decays to C++20 (with tl::expected) for older compilers.
 
 # Setting build to hide symbols in targets by default
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -40,7 +41,9 @@ endif ()
 # -- Dependencies --
 find_package(aws-lambda-runtime)
 find_package(awslabs_enhanced_cpp)
-find_package(tl-expected)
+# tl-expected only needed if the installed awslabs_enhanced_cpp::headers was
+# built without std::expected; the headers target declares the dep transitively
+# when applicable, so we don't need to find it here.
 find_package(AWSSDK REQUIRED COMPONENTS s3 lambda)
 
 # fetch latest argparse
@@ -105,13 +108,17 @@ FetchContent_MakeAvailable(cxxopts)
 
 FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG master
+  GIT_TAG 11.1.0
 )
 FetchContent_MakeAvailable(fmt)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
+
+# TBB is required for std::execution::par / par_unseq to actually parallelize
+# with libstdc++. Without it the policies silently degrade to sequential.
+find_package(TBB REQUIRED)
 
 add_executable(central_limit_theorem central_limit_theorem.cpp exp_mean.cpp)
 target_link_libraries(central_limit_theorem
@@ -123,4 +130,5 @@ target_link_libraries(central_limit_theorem
         fmt
         cxxopts
         Threads::Threads
+        TBB::tbb
         )

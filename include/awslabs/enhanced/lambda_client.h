@@ -12,6 +12,7 @@
 #include <aws/core/utils/Array.h>
 #include <aws/core/utils/base64/Base64.h>
 #include <aws/core/utils/HashingUtils.h>
+#include <aws/core/utils/threading/Executor.h>
 #include <string>
 #include <stdexcept>
 #include <iostream>
@@ -22,6 +23,7 @@
 #include "detail/lambda_detail.h"
 
 #include <alpaca/alpaca.h>
+#include <version> // for __cpp_lib_expected feature-test macro
 #ifdef __cpp_lib_expected
 #include <expected>
 namespace expns = std;
@@ -52,6 +54,17 @@ struct EnhancedLambdaClient {
     // assumption that it got the value by default rather than explicitly.
     // Will create a more completely correct solution in the future.
     if(config.maxConnections == 25) config.maxConnections = 1000;
+
+    // The SDK's default executor has roughly 25 threads, which silently
+    // becomes the real client-side concurrency cap regardless of how high
+    // maxConnections is set. If no executor was supplied, install one sized
+    // to match maxConnections so client-side parallelism keeps pace with
+    // the HTTP connection pool (and with Lambda's account concurrency).
+    if (!config.executor) {
+      config.executor = Aws::MakeShared<Aws::Utils::Threading::PooledThreadExecutor>(
+          "EnhancedLambdaClient", config.maxConnections);
+    }
+
     client = std::make_unique<Aws::Lambda::LambdaClient>(config);
   }
   template<typename Sig>

@@ -12,9 +12,10 @@ project("awslabs_enhanced_cpp_examples"
 
 # -- Project wide setup --
 # Setting C++ minimum requirements
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# See top-level CMakeLists.txt: intentionally not REQUIRED so the build
+# decays to C++20 (with tl::expected) for older compilers.
 
 # Setting build to hide symbols in targets by default
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -39,7 +40,7 @@ endif ()
 
 # -- Dependencies --
 find_package(awslabs_enhanced_cpp)
-find_package(tl-expected)
+# tl-expected: see comment in doc/examples/CMakeLists.txt
 find_package(AWSSDK REQUIRED COMPONENTS s3)
 
 # -- Targets --

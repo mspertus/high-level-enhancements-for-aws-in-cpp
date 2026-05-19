@@ -10,7 +10,6 @@ string(CONCAT DESCRIPTION_STRING "The AWSLabs Enhanced libraries for C++ tight i
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 find_package(Git QUIET) # Adding development helper tools as git_hash built when available.
-find_package(tl-expected)
 include(project_version)
 obtain_project_version(AWSLABS_ENHANCED_CPP_PROJECT_VERSION awslabs-enhanced-cpp_GIT_HASH)
 
@@ -22,9 +21,12 @@ project("awslabs_enhanced_cpp"
 include(CTest)
 # -- Project wide setup --
 # Setting C++ minimum requirements
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Intentionally not REQUIRED: requesting C++23 lets us pick up std::expected
+# when available, but CMake will decay to C++20 (the real minimum, enforced
+# by cxx_std_20 on the headers target below) for older compilers, which then
+# fall back to tl::expected via the #ifdef in the headers.
 
 # Setting build to hide symbols in targets by default
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
@@ -60,6 +62,12 @@ option(BUILD_TESTING "If enabled, the SDK will include tests in the build" OFF)
 # -- Dependencies --
 include(dependencies)
 
+# GNUInstallDirs must be included before target_include_directories so
+# CMAKE_INSTALL_INCLUDEDIR is populated when $<INSTALL_INTERFACE:...> is
+# recorded. Without this, the installed export has an empty include dir
+# and downstream consumers cannot find the headers.
+include(GNUInstallDirs)
+
 # -- main build target --
 add_library(headers INTERFACE)
 add_library(awslabs_enhanced_cpp::headers ALIAS headers)
@@ -70,7 +78,12 @@ target_include_directories(headers INTERFACE
         )
 
 target_compile_features(headers INTERFACE cxx_std_20)
-target_link_libraries(headers INTERFACE tl::expected aws-cpp-sdk-core)
+target_link_libraries(headers INTERFACE aws-cpp-sdk-core)
+# tl-expected is only needed as a fallback for compilers lacking std::expected;
+# the headers select between the two via __cpp_lib_expected.
+if (TARGET tl::expected)
+    target_link_libraries(headers INTERFACE tl::expected)
+endif ()
 
 # -- Tests, doc and packaging if running this as top project --
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
@@ -80,7 +93,6 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     add_subdirectory(packaging)
 endif ()
 
-include(GNUInstallDirs)
 set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
 
 install(TARGETS headers EXPORT awslabs_enhanced_cpp)
