@@ -13,6 +13,10 @@
 #include <aws/core/utils/base64/Base64.h>
 #include <aws/core/utils/HashingUtils.h>
 #include <aws/core/utils/threading/Executor.h>
+
+#ifdef AWSLABS_HAVE_CRT_HTTP
+#include "awslabs/enhanced/crt/crt_http_client.h"
+#endif
 #include <string>
 #include <stdexcept>
 #include <iostream>
@@ -48,6 +52,13 @@ struct Lambda;
 
 struct EnhancedLambdaClient {
   EnhancedLambdaClient(Aws::Client::ClientConfiguration config = {}) {
+#ifdef AWSLABS_HAVE_CRT_HTTP
+    // Swap the SDK's default libcurl-easy HttpClient for our CRT-backed one
+    // before constructing any AWS client in this process. Idempotent: only
+    // takes effect on the first call across the program.
+    AwsLabs::Enhanced::Crt::InstallCrtHttpFactory();
+#endif
+
     // Kludge that avoids silent poor concurrency. We want the default maximum
     // concurrency to be lambda's default concurrency of 1000. If we
     // see the built-in default of 25, we change it to 1000 on the reasonable
