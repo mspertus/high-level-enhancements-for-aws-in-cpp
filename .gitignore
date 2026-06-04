@@ -2,6 +2,7 @@
 .metadata
 .build
 .idea
+.claude
 *.d
 compile_commands.json
 Debug
