@@ -89,6 +89,23 @@ if (TARGET tl::expected)
     target_link_libraries(headers INTERFACE tl::expected)
 endif ()
 
+# NVIDIA stdexec — reference P2300 implementation. gcc trunk libstdc++ does
+# not yet ship senders/receivers (__cpp_lib_senders undefined), so we pull
+# stdexec in for the LambdaScheduler.
+#
+# Not linked to `headers` because stdexec is a FetchContent dep and isn't
+# in our export set; doing so would break `install(EXPORT)`. Consumers that
+# include awslabs/enhanced/lambda_scheduler.h must link STDEXEC::stdexec
+# themselves (the in-tree demos do).
+include(FetchContent)
+FetchContent_Declare(stdexec
+    GIT_REPOSITORY https://github.com/NVIDIA/stdexec.git
+    GIT_TAG main
+)
+set(STDEXEC_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(STDEXEC_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(stdexec)
+
 # -- CRT-based HTTP transport (opt-out via -DAWSLABS_ENABLE_CRT=OFF) --
 # Builds a compiled static library that wraps libaws-c-http (non-blocking,
 # event-loop-driven I/O) and installs it as the SDK's HttpClient. The

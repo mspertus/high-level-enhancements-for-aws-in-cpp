@@ -112,6 +112,17 @@ FetchContent_Declare(fmt
 )
 FetchContent_MakeAvailable(fmt)
 
+# Examples is a standalone CMake project, so we fetch stdexec here too
+# (the main project also fetches it, but its CMake state doesn't carry
+# over into the examples subtree).
+FetchContent_Declare(stdexec
+  GIT_REPOSITORY https://github.com/NVIDIA/stdexec.git
+  GIT_TAG main
+)
+set(STDEXEC_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(STDEXEC_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(stdexec)
+
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
@@ -131,4 +142,22 @@ target_link_libraries(central_limit_theorem
         cxxopts
         Threads::Threads
         TBB::tbb
+        )
+
+# Senders/receivers (C++26 std::execution) variant of the demo.
+# Uses the same deployed exp_mean Lambda; differs only in how the fan-out
+# is expressed at the call site.
+add_executable(central_limit_theorem_exec
+    central_limit_theorem_exec.cpp exp_mean.cpp)
+target_link_libraries(central_limit_theorem_exec
+        PRIVATE
+        awslabs_enhanced_cpp::headers
+        AWS::aws-lambda-runtime
+        alpaca
+        aws-cpp-sdk-lambda
+        fmt
+        cxxopts
+        Threads::Threads
+        TBB::tbb
+        STDEXEC::stdexec
         )
